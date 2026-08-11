@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from py_clean_tools.cleaner import (
     build_clean_plan,
     execute_clean_plan,
@@ -9,6 +11,7 @@ from py_clean_tools.cleaner import (
     iter_dirs,
     remove_target,
 )
+from py_clean_tools.models import CleanTarget
 
 
 def test_build_clean_plan_finds_python_cache_and_bytecode(tmp_path: Path) -> None:
@@ -150,23 +153,57 @@ def test_remove_target_removes_file(tmp_path: Path) -> None:
 
 
 def test_execute_clean_plan_removes_targets(tmp_path: Path) -> None:
+    """Cleanup execution should remove existing targets."""
     cache_dir = tmp_path / "__pycache__"
     cache_dir.mkdir()
 
     plan = build_clean_plan(tmp_path)
-    removed = execute_clean_plan(plan)
+    result = execute_clean_plan(plan)
 
-    assert removed == 1
+    assert result.removed_count == 1
+    assert result.failed_count == 0
+    assert not result.has_failures
     assert not cache_dir.exists()
 
 
 def test_execute_clean_plan_skips_missing_targets(tmp_path: Path) -> None:
+    """Cleanup execution should skip targets that no longer exist."""
     cache_dir = tmp_path / "__pycache__"
     cache_dir.mkdir()
 
     plan = build_clean_plan(tmp_path)
     cache_dir.rmdir()
 
-    removed = execute_clean_plan(plan)
+    result = execute_clean_plan(plan)
 
-    assert removed == 0
+    assert result.removed_count == 0
+    assert result.failed_count == 0
+    assert not result.has_failures
+
+def test_execute_clean_plan_records_failures(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Cleanup execution should record removal failures and continue."""
+    cache_dir = tmp_path / "__pycache__"
+    cache_dir.mkdir()
+
+    plan = build_clean_plan(tmp_path)
+
+    def fail_remove_target(target: CleanTarget) -> None:
+        msg = f"Cannot remove {target.path}"
+        raise OSError(msg)
+
+    monkeypatch.setattr(
+        "py_clean_tools.cleaner.remove_target",
+        fail_remove_target,
+    )
+
+    result = execute_clean_plan(plan)
+
+    assert result.removed_count == 0
+    assert result.failed_count == 1
+    assert result.has_failures
+    assert result.failures[0].target.path == cache_dir
+    assert isinstance(result.failures[0].error, OSError)
+    assert cache_dir.exists()

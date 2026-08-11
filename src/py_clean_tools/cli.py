@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import cast
 
 from py_clean_tools.cleaner import build_clean_plan, execute_clean_plan
+from py_clean_tools.config import load_config
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,7 +70,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     root = args.root.resolve()
 
-    plan = build_clean_plan(root)
+    config = load_config(root)
+    plan = build_clean_plan(root, excluded_dirs=config.excluded_dirs)
 
     if args.check:
         if plan.is_empty:
@@ -93,11 +95,22 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     print("Cleaning repository...\n")
-    for target in plan.targets:
+
+    result = execute_clean_plan(plan)
+
+    for target in result.removed:
         print(f"  [REMOVED] {_relative_to_root(target.path, root)}")
 
-    removed = execute_clean_plan(plan)
-    print(f"\n{removed} item(s) removed.")
+    for failure in result.failures:
+        print(f"  [FAILED] {_relative_to_root(failure.target.path, root)}")
+        print(f"           {type(failure.error).__name__}: {failure.error}")
+
+    print(f"\n{result.removed_count} item(s) removed.")
+
+    if result.has_failures:
+        print(f"{result.failed_count} item(s) failed.")
+        return 1
+
     return 0
 
 

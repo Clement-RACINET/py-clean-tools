@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from py_clean_tools.cli import CliArgs, entrypoint, main, parse_args
+from py_clean_tools.models import CleanTarget
 
 if TYPE_CHECKING:
     import pytest
@@ -107,3 +108,55 @@ def test_entrypoint_raises_system_exit_for_empty_root(tmp_path: Path) -> None:
         entrypoint(["--root", str(tmp_path)])
     except SystemExit as exc:
         assert exc.code == 0
+
+def test_main_check_uses_configured_exclude_dirs(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """CLI check mode should honor configured excluded directories."""
+    pyproject = tmp_path / "pyproject.toml"
+    _ = pyproject.write_text(
+        """
+[tool.py-clean-tools]
+exclude_dirs = ["sandbox"]
+""".strip(),
+        encoding="utf-8",
+    )
+
+    cache_dir = tmp_path / "sandbox" / "module" / "__pycache__"
+    cache_dir.mkdir(parents=True)
+
+    exit_code = main(["--root", str(tmp_path), "--check"])
+
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "No cleanup targets found." in captured.out
+
+
+def test_main_write_reports_failures(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """CLI write mode should report cleanup failures."""
+    cache_dir = tmp_path / "__pycache__"
+    cache_dir.mkdir()
+
+    def fail_remove_target(target: CleanTarget) -> None:
+        msg = f"Cannot remove {target.path}"
+        raise OSError(msg)
+
+    monkeypatch.setattr(
+        "py_clean_tools.cleaner.remove_target",
+        fail_remove_target,
+    )
+
+    exit_code = main(["--root", str(tmp_path), "--write"])
+
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert "[FAILED] __pycache__" in captured.out
+    assert "OSError" in captured.out
+    assert "1 item(s) failed." in captured.out

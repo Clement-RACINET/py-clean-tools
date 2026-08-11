@@ -182,6 +182,32 @@ node_modules
 __pypackages__
 ```
 
+## Configuration
+
+`pyclean` can be configured from `pyproject.toml`.
+
+Example:
+
+```toml
+[tool.py-clean-tools]
+exclude_dirs = [
+    "sandbox",
+    "litterature",
+]
+Configured exclusions are added to the default excluded directories.
+
+Default excluded directories:
+
+.git
+.hg
+.svn
+.pixi
+.venv
+venv
+node_modules
+__pypackages__
+
+
 ---
 
 ## Pixi integration

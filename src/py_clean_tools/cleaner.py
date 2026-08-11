@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from dataclasses import dataclass
 from pathlib import Path
 import shutil
 
@@ -44,6 +45,36 @@ DEFAULT_FILE_GLOBS: tuple[str, ...] = (
     ".coverage",
     "coverage.xml",
 )
+
+@dataclass(frozen=True, slots=True)
+class CleanFailure:
+    """A cleanup failure."""
+
+    target: CleanTarget
+    error: OSError
+
+
+@dataclass(frozen=True, slots=True)
+class CleanExecutionResult:
+    """Result of cleanup execution."""
+
+    removed: tuple[CleanTarget, ...]
+    failures: tuple[CleanFailure, ...]
+
+    @property
+    def removed_count(self) -> int:
+        """Return the number of removed targets."""
+        return len(self.removed)
+
+    @property
+    def failed_count(self) -> int:
+        """Return the number of failed targets."""
+        return len(self.failures)
+
+    @property
+    def has_failures(self) -> bool:
+        """Return whether cleanup had failures."""
+        return bool(self.failures)
 
 
 def is_excluded(path: Path, root: Path, excluded_dirs: Iterable[str]) -> bool:
@@ -116,15 +147,24 @@ def remove_target(target: CleanTarget) -> None:
         target.path.unlink()
 
 
-def execute_clean_plan(plan: CleanPlan) -> int:
-    """Execute a cleanup plan and return the number of removed targets."""
-    removed = 0
+def execute_clean_plan(plan: CleanPlan) -> CleanExecutionResult:
+    """Execute a cleanup plan and return execution details."""
+    removed: list[CleanTarget] = []
+    failures: list[CleanFailure] = []
 
     for target in plan.targets:
         if not target.path.exists():
             continue
 
-        remove_target(target)
-        removed += 1
+        try:
+            remove_target(target)
+        except OSError as exc:
+            failures.append(CleanFailure(target=target, error=exc))
+            continue
 
-    return removed
+        removed.append(target)
+
+    return CleanExecutionResult(
+        removed=tuple(removed),
+        failures=tuple(failures),
+    )
