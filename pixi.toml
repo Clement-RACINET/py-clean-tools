@@ -1,0 +1,33 @@
+[project]
+name = "py-clean-tools"
+version = "0.1.0"
+description = "Safe cleanup utility for Python project cache and build artifacts."
+channels = ["conda-forge"]
+platforms = ["linux-64", "win-64", "osx-arm64"]
+
+[dependencies]
+python = "3.11.*"
+pytest = ">=9.1.1,<10"
+
+[pypi-dependencies]
+py-clean-tools = { path = ".", editable = true }
+
+[feature.dev.pypi-dependencies]
+pytest = ">=8.0"
+pytest-cov = ">=5.0,<8"
+ruff = ">=0.6,<1.0"
+basedpyright = ">=1.20,<2.0"
+
+[environments]
+default = { features = [], solve-group = "default" }
+dev = { features = ["dev"], solve-group = "default" }
+
+[tasks]
+pyclean = "pyclean"
+
+[feature.dev.tasks]
+tests = "pytest"
+lint = "ruff check src tests"
+fmt = "ruff format src tests"
+typecheck = "basedpyright src"
+check = { depends-on = ["lint", "typecheck", "tests"] }

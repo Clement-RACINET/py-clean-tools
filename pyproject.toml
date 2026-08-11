@@ -1,0 +1,71 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "py-clean-tools"
+version = "0.1.0"
+description = "Safe cleanup utility for Python project cache and build artifacts."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+    { name = "Clément RACINET" }
+]
+keywords = ["cleanup", "cache", "build", "python", "developer-tools"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Utilities",
+]
+
+dependencies = []
+
+[project.scripts]
+pyclean = "py_clean_tools.cli:entrypoint"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/py_clean_tools"]
+artifacts = ["src/py_clean_tools/py.typed"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B", "C4", "SIM", "ANN", "PL"]
+ignore = []
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+known-first-party = ["py_clean_tools"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = [
+    "--cov=py_clean_tools",
+    "--cov-branch",
+    "--cov-report=term-missing",
+]
+
+[tool.coverage.run]
+source = ["py_clean_tools"]
+branch = true
+omit = [".pixi/*", "tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
