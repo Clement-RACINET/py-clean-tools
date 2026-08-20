@@ -1,4 +1,4 @@
-[project]
+[workspace]
 name = "py-clean-tools"
 version = "0.1.0"
 description = "Safe cleanup utility for Python project cache and build artifacts."
